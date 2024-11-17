@@ -24,6 +24,26 @@ public class Utils {
     private static final File TINYENCRYPT_CONFIG_FILE2 = new File(USER_HOME, ".config/cryptomator/tinyencrypt_config.json");
     private static final File DEFAULT_ENCRYPTION_KEY_BASE_PATH = new File(USER_HOME, ".config/cryptomator/tinyencrypt_keys/");
 
+    public static boolean isCheckPassphraseStored() {
+        final StackTraceElement stack = getCallerStackTrace();
+        if (stack != null) {
+            return "isPassphraseStored".equals(stack.getMethodName());
+        }
+        return false;
+    }
+
+    public static StackTraceElement getCallerStackTrace() {
+        // org.cryptomator.common.keychain.KeychainManager :: isPassphraseStored
+        final StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+        for (int i = 0; i < stackTraceElements.length; i++) {
+            final StackTraceElement stack = stackTraceElements[i];
+            if ("org.cryptomator.common.keychain.KeychainManager".equals(stack.getClassName())) {
+                return stack;
+            }
+        }
+        return null;
+    }
+
     public static boolean checkTinyencryptReady(TinyencryptConfig tinyencryptConfig) {
         if (tinyencryptConfig == null) {
             return false;
@@ -64,6 +84,10 @@ public class Utils {
     }
 
     public static String loadPassword(TinyencryptConfig tinyencryptConfig, String vault) throws KeychainAccessException {
+        if (isCheckPassphraseStored()) {
+            LOG.info("Check passphrase stored: " + vault);
+            throw new KeychainAccessException("Check passphrase stored");
+        }
         final File keyFile = getKeyFile(tinyencryptConfig, vault);
         if (!keyFile.isFile()) {
             throw new KeychainAccessException("Password key file: " + keyFile + " not found");

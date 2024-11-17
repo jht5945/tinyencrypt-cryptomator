@@ -56,6 +56,7 @@ public class TinyEncryptAccessProvider implements KeychainAccessProvider {
 
     @Override
     public char[] loadPassphrase(String vault) throws KeychainAccessException {
+        LOG.info("Load password for: " + vault);
         final String password = Utils.loadPassword(tinyencryptConfig, vault);
         return password.toCharArray();
     }
@@ -68,7 +69,6 @@ public class TinyEncryptAccessProvider implements KeychainAccessProvider {
 
     @Override
     public void changePassphrase(String vault, CharSequence password) throws KeychainAccessException {
-        LOG.info("Change password for: " + vault);
         changePassphrase(vault, "Vault", password);
     }
 
