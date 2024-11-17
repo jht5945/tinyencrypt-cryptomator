@@ -84,11 +84,14 @@ public class Utils {
     }
 
     public static String loadPassword(TinyencryptConfig tinyencryptConfig, String vault) throws KeychainAccessException {
-        if (isCheckPassphraseStored()) {
-            LOG.info("Check passphrase stored: " + vault);
-            throw new KeychainAccessException("Check passphrase stored");
-        }
         final File keyFile = getKeyFile(tinyencryptConfig, vault);
+        if (isCheckPassphraseStored()) {
+            LOG.info("Check passphrase stored: " + vault + ", exists: " + keyFile.exists());
+            if (keyFile.exists()) {
+                // this is only for check passphrase stored
+                return "123456";
+            }
+        }
         if (!keyFile.isFile()) {
             throw new KeychainAccessException("Password key file: " + keyFile + " not found");
         }
