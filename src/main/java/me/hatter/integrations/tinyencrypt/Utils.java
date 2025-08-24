@@ -172,9 +172,18 @@ public class Utils {
         List<String> arguments = new ArrayList<>();
         arguments.add("simple-decrypt");
         arguments.add("--value-stdin");
-        arguments.add("--outputs-password");
         arguments.add("--pin");
         arguments.add("#INPUT#");
+
+        boolean inputNewPassword = false;
+        String cachedPassword = PBKDF_PASSWORD_CACHE_MAP.getPassword(tinyencryptConfig, vault);
+        if (StringUtils.isNotEmpty(cachedPassword)) {
+            arguments.add("--password");
+            arguments.add(cachedPassword);
+        } else {
+            inputNewPassword = true;
+            arguments.add("--outputs-password");
+        }
 
         final UtilsCommandResult decryptResult = runTinyencrypt(
                 tinyencryptConfig,
@@ -187,7 +196,7 @@ public class Utils {
         String stdout = new String(decryptResult.getStdout(), StandardCharsets.UTF_8);
         stdout = stdout.lines().filter(ln -> !ln.startsWith("[INFO ]")).collect(Collectors.joining());
         TinyEncryptResult result = new Gson().fromJson(stdout, TinyEncryptResult.class);
-        if (StringUtils.isNotEmpty(result.getPassword())) {
+        if (inputNewPassword && StringUtils.isNotEmpty(result.getPassword())) {
             LOG.info("Store PBKDF password to cache");
             PBKDF_PASSWORD_CACHE_MAP.putPassword(tinyencryptConfig, vault, result.getPassword());
         }
