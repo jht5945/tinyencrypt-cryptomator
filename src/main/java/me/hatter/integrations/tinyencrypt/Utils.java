@@ -1,6 +1,7 @@
 package me.hatter.integrations.tinyencrypt;
 
 import com.google.gson.Gson;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.cryptomator.integrations.keychain.KeychainAccessException;
 import org.slf4j.Logger;
@@ -11,18 +12,23 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 /**
  * @author hatterjiang
  */
 public class Utils {
     private static final Logger LOG = LoggerFactory.getLogger(Utils.class);
-    private static final String DEFAULT_GPG_COMMAND = "tinyencrypt";
+    private static final String DEFAULT_TINY_ENCRYPT_COMMAND = "tinyencrypt";
     private static final String USER_HOME = System.getProperty("user.home");
     private static final File TINYENCRYPT_CONFIG_FILE1 = new File("/etc/cryptomator/tinyencrypt_config.json");
     private static final File TINYENCRYPT_CONFIG_FILE2 = new File(USER_HOME, ".config/cryptomator/tinyencrypt_config.json");
     private static final File DEFAULT_ENCRYPTION_KEY_BASE_PATH = new File(USER_HOME, ".config/cryptomator/tinyencrypt_keys/");
+
+    private static final PasswordCache PBKDF_PASSWORD_CACHE_MAP = new PasswordCache(TimeUnit.HOURS.toMillis(1));
+    private static final PasswordCache VAULT_PASSWORD_CACHE_MAP = new PasswordCache(TimeUnit.HOURS.toMillis(1));
 
     public static boolean isCheckPassphraseStored() {
         final StackTraceElement stack = getCallerStackTrace();
@@ -81,9 +87,15 @@ public class Utils {
         if (keyFile.exists() && keyFile.isFile()) {
             keyFile.delete();
         }
+        PBKDF_PASSWORD_CACHE_MAP.removePassword(tinyencryptConfig, vault);
+        VAULT_PASSWORD_CACHE_MAP.removePassword(tinyencryptConfig, vault);
     }
 
     public static String loadPassword(TinyencryptConfig tinyencryptConfig, String vault) throws KeychainAccessException {
+        final String cachedVaultPassword = VAULT_PASSWORD_CACHE_MAP.getPassword(tinyencryptConfig, vault);
+        if (BooleanUtils.isTrue(tinyencryptConfig.getEnableVaultPasswordCache()) && (cachedVaultPassword != null)) {
+            return cachedVaultPassword;
+        }
         final File keyFile = getKeyFile(tinyencryptConfig, vault);
         if (isCheckPassphraseStored()) {
             LOG.info("Check passphrase stored: " + vault + ", exists: " + keyFile.exists());
@@ -96,12 +108,20 @@ public class Utils {
             throw new KeychainAccessException("Password key file: " + keyFile + " not found");
         }
         final String encryptedKey = readFile(keyFile);
-        final byte[] password = decrypt(tinyencryptConfig, encryptedKey);
-        return new String(password, StandardCharsets.UTF_8);
+        final String vaultPassword = decrypt(tinyencryptConfig, vault, encryptedKey);
+        if (BooleanUtils.isTrue(tinyencryptConfig.getEnableVaultPasswordCache())) {
+            LOG.info("Store vault password to cache");
+            VAULT_PASSWORD_CACHE_MAP.putPassword(tinyencryptConfig, vault, vaultPassword);
+        }
+        return vaultPassword;
     }
 
     public static void storePassword(TinyencryptConfig tinyencryptConfig, String vault, String name, CharSequence password) throws KeychainAccessException {
-        final String encryptedPassword = encrypt(tinyencryptConfig, password.toString().getBytes(StandardCharsets.UTF_8), name);
+        if (BooleanUtils.isTrue(tinyencryptConfig.getEnableVaultPasswordCache())) {
+            LOG.info("Store vault password to cache");
+            VAULT_PASSWORD_CACHE_MAP.putPassword(tinyencryptConfig, vault, password.toString());
+        }
+        final String encryptedPassword = encrypt(tinyencryptConfig, vault, password.toString(), name);
         final File keyFile = getKeyFile(tinyencryptConfig, vault);
         writeFile(keyFile, encryptedPassword);
     }
@@ -148,33 +168,67 @@ public class Utils {
         }
     }
 
-    private static byte[] decrypt(TinyencryptConfig tinyencryptConfig, String input) throws KeychainAccessException {
+    private static String decrypt(TinyencryptConfig tinyencryptConfig, String vault, String input) throws KeychainAccessException {
+        List<String> arguments = new ArrayList<>();
+        arguments.add("simple-decrypt");
+        arguments.add("--value-stdin");
+        arguments.add("--outputs-password");
+        arguments.add("--pin");
+        arguments.add("#INPUT#");
+
         final UtilsCommandResult decryptResult = runTinyencrypt(
                 tinyencryptConfig,
                 input.getBytes(StandardCharsets.UTF_8),
-                "simple-decrypt",
-                "--value-stdin",
-                "--direct-output"
+                arguments.toArray(new String[0])
         );
         if (decryptResult.getExitValue() != 0) {
             throw new KeychainAccessException("tinyencrypt decrypt failed: " + decryptResult);
         }
-        return decryptResult.getStdout();
+        String stdout = new String(decryptResult.getStdout(), StandardCharsets.UTF_8);
+        stdout = stdout.lines().filter(ln -> !ln.startsWith("[INFO ]")).collect(Collectors.joining());
+        TinyEncryptResult result = new Gson().fromJson(stdout, TinyEncryptResult.class);
+        if (StringUtils.isNotEmpty(result.getPassword())) {
+            LOG.info("Store PBKDF password to cache");
+            PBKDF_PASSWORD_CACHE_MAP.putPassword(tinyencryptConfig, vault, result.getPassword());
+        }
+        return result.getResult();
     }
 
-    private static String encrypt(TinyencryptConfig tinyencryptConfig, byte[] input, String name) throws KeychainAccessException {
+    private static String encrypt(TinyencryptConfig tinyencryptConfig, String vault, String input, String name) throws KeychainAccessException {
+        List<String> arguments = new ArrayList<>();
+        arguments.add("simple-encrypt");
+        arguments.add("--key-filter");
+        arguments.add(tinyencryptConfig.getKeyId());
+        arguments.add("--value-stdin");
+
+        boolean inputNewPassword = false;
+        if (BooleanUtils.isTrue(tinyencryptConfig.getEnablePbkdfEncryptionPassword())) {
+            arguments.add("--with-pbkdf-encryption");
+            String cachedPassword = PBKDF_PASSWORD_CACHE_MAP.getPassword(tinyencryptConfig, vault);
+            if (StringUtils.isNotEmpty(cachedPassword)) {
+                arguments.add("--password");
+                arguments.add(cachedPassword);
+            } else {
+                inputNewPassword = true;
+                arguments.add("--outputs-password");
+            }
+        }
+
         final UtilsCommandResult encryptResult = runTinyencrypt(
                 tinyencryptConfig,
-                input,
-                "simple-encrypt",
-                "--key-filter", tinyencryptConfig.getKeyId(),
-                "--value-stdin",
-                "--direct-output"
+                input.getBytes(StandardCharsets.UTF_8),
+                arguments.toArray(new String[0])
         );
         if (encryptResult.getExitValue() != 0) {
             throw new KeychainAccessException("tinyencrypt encrypt failed: " + encryptResult);
         }
-        return new String(encryptResult.getStdout(), StandardCharsets.UTF_8);
+        TinyEncryptResult result = new Gson().fromJson(new String(encryptResult.getStdout(), StandardCharsets.UTF_8), TinyEncryptResult.class);
+        if (inputNewPassword && StringUtils.isNotEmpty(result.getPassword())) {
+            LOG.info("Store PBKDF password to cache");
+            PBKDF_PASSWORD_CACHE_MAP.putPassword(tinyencryptConfig, vault, result.getPassword());
+        }
+
+        return result.getResult();
     }
 
     private static UtilsCommandResult runTinyencrypt(TinyencryptConfig tinyencryptConfig, byte[] input, String... arguments) throws KeychainAccessException {
@@ -256,7 +310,7 @@ public class Utils {
         if ((tinyencryptConfig != null) && StringUtils.isNoneEmpty(tinyencryptConfig.getTinyencryptCommand())) {
             return tinyencryptConfig.getTinyencryptCommand();
         }
-        return DEFAULT_GPG_COMMAND;
+        return DEFAULT_TINY_ENCRYPT_COMMAND;
     }
 
     private static File getEncryptKeyBasePath(TinyencryptConfig tinyencryptConfig) {

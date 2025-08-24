@@ -27,7 +27,11 @@ public class TinyEncryptAccessProvider implements KeychainAccessProvider {
         }
     }
 
-    @Override
+    public String getName() {
+        return displayName();
+    }
+
+    // @Override
     public String displayName() {
         return "TinyEncrypt";
     }
@@ -43,7 +47,7 @@ public class TinyEncryptAccessProvider implements KeychainAccessProvider {
         return false;
     }
 
-    @Override
+    // @Override
     public void storePassphrase(String vault, CharSequence password) throws KeychainAccessException {
         storePassphrase(vault, "Vault", password);
     }
@@ -67,7 +71,7 @@ public class TinyEncryptAccessProvider implements KeychainAccessProvider {
         Utils.deletePassword(tinyencryptConfig, vault);
     }
 
-    @Override
+    // @Override
     public void changePassphrase(String vault, CharSequence password) throws KeychainAccessException {
         changePassphrase(vault, "Vault", password);
     }

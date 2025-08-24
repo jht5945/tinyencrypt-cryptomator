@@ -11,13 +11,22 @@ public class TinyencryptConfig {
      */
     private String keyId;
     /**
-     * OPTIONAL, tinyencrypt command path, default "gpg"
+     * OPTIONAL, tinyencrypt command path, default "tinyencrypt"
      */
     private String tinyencryptCommand;
     /**
      * OPTIONAL, Encrypt key base path, default "~/.config/cryptomator/tinyencrypt_keys/"
      */
     private String encryptKeyBasePath;
+    /**
+     * OPTIONAL, PBDKF encryption key
+     */
+    private Boolean enablePbkdfEncryptionPassword;
+
+    /**
+     * OPTIONAL, vault password cache
+     */
+    private Boolean enableVaultPasswordCache;
 
     public String getKeyId() {
         return keyId;
@@ -41,5 +50,21 @@ public class TinyencryptConfig {
 
     public void setEncryptKeyBasePath(String encryptKeyBasePath) {
         this.encryptKeyBasePath = encryptKeyBasePath;
+    }
+
+    public Boolean getEnablePbkdfEncryptionPassword() {
+        return enablePbkdfEncryptionPassword;
+    }
+
+    public void setEnablePbkdfEncryptionPassword(Boolean enablePbkdfEncryptionPassword) {
+        this.enablePbkdfEncryptionPassword = enablePbkdfEncryptionPassword;
+    }
+
+    public Boolean getEnableVaultPasswordCache() {
+        return enableVaultPasswordCache;
+    }
+
+    public void setEnableVaultPasswordCache(Boolean enableVaultPasswordCache) {
+        this.enableVaultPasswordCache = enableVaultPasswordCache;
     }
 }
