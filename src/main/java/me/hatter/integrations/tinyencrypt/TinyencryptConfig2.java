@@ -5,7 +5,7 @@ package me.hatter.integrations.tinyencrypt;
  *
  * @author hatterjiang
  */
-public class TinyencryptConfig {
+public class TinyencryptConfig2 {
     /**
      * REQUIRED, tinyencrypt key ID
      */

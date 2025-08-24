@@ -12,7 +12,7 @@ public class TinyEncryptAccessProvider implements KeychainAccessProvider {
 
     private static final Logger LOG = LoggerFactory.getLogger(TinyEncryptAccessProvider.class);
 
-    private TinyencryptConfig tinyencryptConfig;
+    private TinyencryptConfig2 tinyencryptConfig;
 
     public TinyEncryptAccessProvider() {
         try {

@@ -50,7 +50,7 @@ public class Utils {
         return null;
     }
 
-    public static boolean checkTinyencryptReady(TinyencryptConfig tinyencryptConfig) {
+    public static boolean checkTinyencryptReady(TinyencryptConfig2 tinyencryptConfig) {
         if (tinyencryptConfig == null) {
             return false;
         }
@@ -67,12 +67,12 @@ public class Utils {
         }
     }
 
-    public static TinyencryptConfig loadTinyencryptConfig() throws KeychainAccessException {
+    public static TinyencryptConfig2 loadTinyencryptConfig() throws KeychainAccessException {
         final File configFile = getTinyencryptConfigFile();
         final String configJson = readFile(configFile);
-        final TinyencryptConfig tinyencryptConfig;
+        final TinyencryptConfig2 tinyencryptConfig;
         try {
-            tinyencryptConfig = new Gson().fromJson(configJson, TinyencryptConfig.class);
+            tinyencryptConfig = new Gson().fromJson(configJson, TinyencryptConfig2.class);
         } catch (Exception e) {
             throw new KeychainAccessException("Parse tinyencrypt config file: " + configFile + " failed", e);
         }
@@ -82,7 +82,7 @@ public class Utils {
         return tinyencryptConfig;
     }
 
-    public static void deletePassword(TinyencryptConfig tinyencryptConfig, String vault) {
+    public static void deletePassword(TinyencryptConfig2 tinyencryptConfig, String vault) {
         final File keyFile = getKeyFile(tinyencryptConfig, vault);
         if (keyFile.exists() && keyFile.isFile()) {
             keyFile.delete();
@@ -91,7 +91,7 @@ public class Utils {
         VAULT_PASSWORD_CACHE_MAP.removePassword(tinyencryptConfig, vault);
     }
 
-    public static String loadPassword(TinyencryptConfig tinyencryptConfig, String vault) throws KeychainAccessException {
+    public static String loadPassword(TinyencryptConfig2 tinyencryptConfig, String vault) throws KeychainAccessException {
         final String cachedVaultPassword = VAULT_PASSWORD_CACHE_MAP.getPassword(tinyencryptConfig, vault);
         if (BooleanUtils.isTrue(tinyencryptConfig.getEnableVaultPasswordCache()) && (cachedVaultPassword != null)) {
             return cachedVaultPassword;
@@ -116,7 +116,7 @@ public class Utils {
         return vaultPassword;
     }
 
-    public static void storePassword(TinyencryptConfig tinyencryptConfig, String vault, String name, CharSequence password) throws KeychainAccessException {
+    public static void storePassword(TinyencryptConfig2 tinyencryptConfig, String vault, String name, CharSequence password) throws KeychainAccessException {
         if (BooleanUtils.isTrue(tinyencryptConfig.getEnableVaultPasswordCache())) {
             LOG.info("Store vault password to cache");
             VAULT_PASSWORD_CACHE_MAP.putPassword(tinyencryptConfig, vault, password.toString());
@@ -126,7 +126,7 @@ public class Utils {
         writeFile(keyFile, encryptedPassword);
     }
 
-    private static File getKeyFile(TinyencryptConfig tinyencryptConfig, String vault) {
+    private static File getKeyFile(TinyencryptConfig2 tinyencryptConfig, String vault) {
         final StringBuilder sb = new StringBuilder(vault.length());
         for (char c : vault.toCharArray()) {
             if ((c >= 'a' && c <= 'z')
@@ -168,7 +168,7 @@ public class Utils {
         }
     }
 
-    private static String decrypt(TinyencryptConfig tinyencryptConfig, String vault, String input) throws KeychainAccessException {
+    private static String decrypt(TinyencryptConfig2 tinyencryptConfig, String vault, String input) throws KeychainAccessException {
         List<String> arguments = new ArrayList<>();
         arguments.add("simple-decrypt");
         arguments.add("--value-stdin");
@@ -194,7 +194,7 @@ public class Utils {
         return result.getResult();
     }
 
-    private static String encrypt(TinyencryptConfig tinyencryptConfig, String vault, String input, String name) throws KeychainAccessException {
+    private static String encrypt(TinyencryptConfig2 tinyencryptConfig, String vault, String input, String name) throws KeychainAccessException {
         List<String> arguments = new ArrayList<>();
         arguments.add("simple-encrypt");
         arguments.add("--key-filter");
@@ -231,7 +231,7 @@ public class Utils {
         return result.getResult();
     }
 
-    private static UtilsCommandResult runTinyencrypt(TinyencryptConfig tinyencryptConfig, byte[] input, String... arguments) throws KeychainAccessException {
+    private static UtilsCommandResult runTinyencrypt(TinyencryptConfig2 tinyencryptConfig, byte[] input, String... arguments) throws KeychainAccessException {
         final String tinyencryptCmd = getTinyencryptCommand(tinyencryptConfig);
         final List<String> commands = new ArrayList<>();
         commands.add(tinyencryptCmd);
@@ -306,14 +306,14 @@ public class Utils {
         return outThread;
     }
 
-    private static String getTinyencryptCommand(TinyencryptConfig tinyencryptConfig) {
+    private static String getTinyencryptCommand(TinyencryptConfig2 tinyencryptConfig) {
         if ((tinyencryptConfig != null) && StringUtils.isNoneEmpty(tinyencryptConfig.getTinyencryptCommand())) {
             return tinyencryptConfig.getTinyencryptCommand();
         }
         return DEFAULT_TINY_ENCRYPT_COMMAND;
     }
 
-    private static File getEncryptKeyBasePath(TinyencryptConfig tinyencryptConfig) {
+    private static File getEncryptKeyBasePath(TinyencryptConfig2 tinyencryptConfig) {
         final File encryptKeyBase;
         if ((tinyencryptConfig != null) && StringUtils.isNoneEmpty(tinyencryptConfig.getEncryptKeyBasePath())) {
             encryptKeyBase = new File(tinyencryptConfig.getEncryptKeyBasePath());

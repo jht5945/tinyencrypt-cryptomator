@@ -16,18 +16,18 @@ public class PasswordCache {
         private long timestamp;
     }
 
-    public void removePassword(TinyencryptConfig tinyEncryptConfig, String key) {
+    public void removePassword(TinyencryptConfig2 tinyEncryptConfig, String key) {
         passwordCacheMap.remove(key);
     }
 
-    public void putPassword(TinyencryptConfig tinyencryptConfig, String key, String password) {
+    public void putPassword(TinyencryptConfig2 tinyencryptConfig, String key, String password) {
         final CachedPasswordWithTime cachedPasswordWithTime = new CachedPasswordWithTime();
         cachedPasswordWithTime.password = password;
         cachedPasswordWithTime.timestamp = System.currentTimeMillis();
         passwordCacheMap.put(key, cachedPasswordWithTime);
     }
 
-    public String getPassword(TinyencryptConfig tinyencryptConfig, String key) {
+    public String getPassword(TinyencryptConfig2 tinyencryptConfig, String key) {
         final CachedPasswordWithTime cachedPasswordWithTime = passwordCacheMap.get(key);
         if (cachedPasswordWithTime == null) {
             return null;
